@@ -3,6 +3,7 @@ from aws_cdk import (
     Duration,
     Stack,
     RemovalPolicy,
+    CfnOutput,
     aws_iam as iam,
     aws_sqs as sqs,
     aws_sns as sns,
@@ -31,42 +32,109 @@ class pupperStack(Stack):
 
         topic.add_subscription(subs.SqsSubscription(queue))
 
-        # Dogs table - stores dog information with encrypted names
+        # Dogs table
         self.dogs_table = dynamodb.Table(
             self, "DogsTable",
             table_name="pupper-dogs",
             partition_key=dynamodb.Attribute(
-                name="dog_id",
+                name="id",
                 type=dynamodb.AttributeType.STRING
             ),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY,  # For development only
-            point_in_time_recovery=True,  # Component requirement: data protection
+            removal_policy=RemovalPolicy.DESTROY,
         )
+
+        # S3 bucket for dog photos (private for now)
+        bucket = s3.Bucket(
+            self, "DogPhotosBucket", 
+            bucket_name="pupper-photos-957798448417",
+            removal_policy=RemovalPolicy.DESTROY
+        )
+
+        # Lambda function for API
+        lambda_fn = _lambda.Function(
+            self, "DogsApiFunction",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="index.handler",
+            code=_lambda.Code.from_inline("""
+import json
+import boto3
+from decimal import Decimal
+
+def decimal_default(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
+
+def handler(event, context):
+    print(f"Event: {json.dumps(event)}")
+    
+    try:
+        path = event.get('path', '')
+        method = event.get('httpMethod', '')
         
-        # Add GSI for filtering by state, color, etc.
-        self.dogs_table.add_global_secondary_index(
-            index_name="StateIndex",
-            partition_key=dynamodb.Attribute(
-                name="state",
-                type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(
-                name="created_at",
-                type=dynamodb.AttributeType.STRING
+        # Handle root path
+        if path == '/':
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({'message': 'Pupper API is running!'})
+            }
+        
+        # Handle /dogs path
+        if path == '/dogs' and method == 'GET':
+            dynamodb = boto3.resource('dynamodb')
+            table = dynamodb.Table('pupper-dogs')
+            response = table.scan()
+            
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps(response['Items'], default=decimal_default)
+            }
+        
+        return {
+            'statusCode': 404,
+            'headers': {'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Not found'})
+        }
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return {
+            'statusCode': 500,
+            'headers': {'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': str(e)})
+        }
+""")
+        )
+
+        # Grant Lambda permissions to DynamoDB
+        self.dogs_table.grant_read_write_data(lambda_fn)
+
+        # API Gateway
+        api = apigateway.RestApi(
+            self, "PupperApi",
+            rest_api_name="Pupper Dogs API",
+            default_cors_preflight_options=apigateway.CorsOptions(
+                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_methods=apigateway.Cors.ALL_METHODS,
+                allow_headers=["Content-Type", "Authorization"]
             )
         )
 
-        bucket = s3.Bucket(self, "DataBucket", bucket_name="dog-photo-957798448417")
+        dogs_resource = api.root.add_resource("dogs")
+        dogs_resource.add_method("GET", apigateway.LambdaIntegration(lambda_fn))
+        
+        # Add root path handler
+        api.root.add_method("GET", apigateway.LambdaIntegration(lambda_fn))
 
-        lambda_fn = _lambda.Function(
-            self, "ApiFunction",
-            runtime=_lambda.Runtime.PYTHON_3_9,
-            handler="index.handler",
-            code=_lambda.Code.from_inline("def handler(event, context): return {'statusCode': 200}")
-        )
-
-        api = apigateway.LambdaRestApi(
-            self, "Api",
-            handler=lambda_fn
-        )
+        # Outputs
+        CfnOutput(self, "ApiUrl", value=api.url, description="API Gateway URL")
+        CfnOutput(self, "BucketName", value=bucket.bucket_name, description="S3 Bucket Name")
