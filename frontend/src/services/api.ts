@@ -5,7 +5,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 export const dogService = {
   async getAllDogs(): Promise<Dog[]> {
     try {
-      console.log(`Fetching dogs from ${API_BASE_URL}/dogs`);
       const response = await fetch(`${API_BASE_URL}/dogs`, {
         headers: {
           'Accept': 'application/json',
@@ -14,24 +13,18 @@ export const dogService = {
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error (${response.status}): ${errorText}`);
-        throw new Error(`Failed to fetch dogs: ${response.status} ${errorText}`);
+        throw new Error(`Failed to fetch dogs: ${response.status}`);
       }
       
-      const data = await response.json();
-      console.log(`Successfully fetched ${data.length} dogs`);
-      return data;
+      return await response.json();
     } catch (error) {
-      console.error('Error in getAllDogs:', error);
+      console.error('Error fetching dogs:', error);
       throw error;
     }
   },
 
   async createDog(dogData: any, image: File): Promise<void> {
     try {
-      console.log(`Creating new dog with data:`, Object.keys(dogData));
-      
       // Convert image to base64
       const base64Image = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -41,15 +34,12 @@ export const dogService = {
         };
         reader.readAsDataURL(image);
       });
-      console.log('Image converted to base64');
 
       const payload = {
         ...dogData,
-        image: base64Image,
-        shelterEntryDate: new Date().toISOString().split('T')[0]
+        image: base64Image
       };
       
-      console.log(`Sending POST request to ${API_BASE_URL}/dogs`);
       const response = await fetch(`${API_BASE_URL}/dogs`, {
         method: 'POST',
         headers: {
@@ -61,13 +51,10 @@ export const dogService = {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`API Error (${response.status}): ${errorText}`);
-        throw new Error(`Failed to create dog: ${response.status} ${errorText}`);
+        throw new Error(`Failed to create dog: ${response.status} - ${errorText}`);
       }
-      
-      console.log('Dog created successfully');
     } catch (error) {
-      console.error('Error in createDog:', error);
+      console.error('Error creating dog:', error);
       throw error;
     }
   }

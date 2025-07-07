@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardMedia, Typography, Grid, Box } from '@mui/material';
+import { Box, Grid, Typography, Container, TextField } from '@mui/material';
+import DogCard from './DogCard';
+import SearchFilters from './SearchFilters';
 
 interface DogDetails {
   id: string;
@@ -18,11 +20,9 @@ interface DogDetails {
 
 function Dogs() {
   const [dogs, setDogs] = useState<DogDetails[]>([]);
-  const [loading, setLoading] = useState(true);
   const bucketName = import.meta.env.VITE_S3_BUCKET_NAME;
-  
+
   useEffect(() => {
-    // Dog details matching your DynamoDB data
     const dogDetails: DogDetails[] = [
       { id: "1", name: "Buddy", species: "Golden Retriever", shelter: "Happy Paws Shelter", city: "Seattle", state: "WA", description: "Friendly and energetic dog.", birthday: "2022-03-10", weightInPounds: 65, color: "Golden", photo: "buddy.jpg", shelterEntryDate: "2024-01-15" },
       { id: "2", name: "Luna", species: "Border Collie", shelter: "City Animal Rescue", city: "Portland", state: "OR", description: "Smart and active dog.", birthday: "2021-07-22", weightInPounds: 45, color: "Black & White", photo: "luna.jpg", shelterEntryDate: "2024-02-01" },
@@ -35,44 +35,31 @@ function Dogs() {
       { id: "9", name: "Zeus", species: "Rottweiler", shelter: "Safe Haven Rescue", city: "Nashville", state: "TN", description: "Strong and loyal guardian.", birthday: "2020-08-20", weightInPounds: 85, color: "Black & Tan", photo: "zeus.jpg", shelterEntryDate: "2024-01-18" },
       { id: "10", name: "Rosie", species: "Poodle Mix", shelter: "Forever Friends", city: "San Diego", state: "CA", description: "Intelligent and hypoallergenic.", birthday: "2021-06-08", weightInPounds: 25, color: "Cream", photo: "rosie.jpg", shelterEntryDate: "2024-02-12" }
     ];
-    
-    // Add full S3 URLs to the photos
+
     const dogsWithUrls = dogDetails.map(dog => ({
       ...dog,
       photo: `https://${bucketName}.s3.amazonaws.com/${dog.photo}`
     }));
-    
+
     setDogs(dogsWithUrls);
-    setLoading(false);
   }, [bucketName]);
 
-  if (loading) {
-    return <Typography>Loading dogs...</Typography>;
-  }
-
   return (
-    <Box sx={{ padding: 2, marginTop: 8 }}>
-      <Typography variant="h3" sx={{ mb: 3 }}>Available Dogs</Typography>
-      <Grid container spacing={3}>
-        {dogs.map((dog) => (
-          <Grid item xs={12} sm={6} md={4} key={dog.id}>
-            <Card>
-              <CardMedia component="img" height="200" image={dog.photo} alt={dog.name} />
-              <CardContent>
-                <Typography variant="h5">{dog.name}</Typography>
-                <Typography variant="body2" color="text.secondary">{dog.species}</Typography>
-                <Typography variant="body2"><strong>Shelter:</strong> {dog.shelter}</Typography>
-                <Typography variant="body2"><strong>Location:</strong> {dog.city}, {dog.state}</Typography>
-                <Typography variant="body2"><strong>Weight:</strong> {dog.weightInPounds} lbs</Typography>
-                <Typography variant="body2"><strong>Color:</strong> {dog.color}</Typography>
-                <Typography variant="body2"><strong>Entry Date:</strong> {dog.shelterEntryDate}</Typography>
-                <Typography variant="body2"><strong>Birthday:</strong> {dog.birthday}</Typography>
-                <Typography variant="body2" sx={{ mt: 1 }}>{dog.description}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+    <Box sx={{ backgroundColor: '#f8f9fa', minHeight: '100vh', pt: 10 }}>
+      <Container maxWidth="xl">
+        <Box sx={{ display: 'flex', gap: 3 }}>
+          <SearchFilters />
+          <Box sx={{ flex: 1 }}>
+            <Grid container spacing={3}>
+              {dogs.map((dog) => (
+                <Grid item xs={12} sm={6} md={4} key={dog.id}>
+                  <DogCard dog={dog} />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        </Box>
+      </Container>
     </Box>
   );
 }
