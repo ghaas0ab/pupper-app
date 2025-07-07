@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Card, CardContent, TextField, Button, Box, Typography, Container, Paper, Divider } from '@mui/material';
+import { Card, CardContent, TextField, Button, Box, Typography, Container, Paper, Divider, Alert } from '@mui/material';
 import { CloudUpload, Pets } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { dogService } from '../services/api';
 
 export default function AddDogForm() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     shelter: '', city: '', state: '', name: '', species: '', 
     shelterEntryDate: '', description: '', birthday: '', weightInPounds: '', color: ''
   });
   const [image, setImage] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +26,8 @@ export default function AddDogForm() {
       await dogService.createDog(formData, image);
       setFormData({ shelter: '', city: '', state: '', name: '', species: '', shelterEntryDate: '', description: '', birthday: '', weightInPounds: '', color: '' });
       setImage(null);
-      alert('Dog added successfully!');
+      setSuccessMessage('Dog added successfully! 🎉');
+      setTimeout(() => navigate('/'), 2000);
     } catch (error) {
       console.error('Submit error:', error);
       alert('Error adding dog. Please check console for details.');
@@ -34,6 +38,12 @@ export default function AddDogForm() {
   return (
     <Box sx={{ backgroundColor: '#f8fafc', minHeight: '100vh', py: 12 }}>
       <Container maxWidth="lg">
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 4, fontSize: '16px' }}>
+            {successMessage}
+          </Alert>
+        )}
+        
         <Box sx={{ textAlign: 'center', mb: 6 }}>
           <Pets sx={{ fontSize: 48, color: '#ff6b35', mb: 2 }} />
           <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2, color: '#2d3748' }}>
