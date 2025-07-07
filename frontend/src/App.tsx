@@ -9,6 +9,9 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AppBar, Toolbar, Button } from '@mui/material';
 //import Home from './components/Home';
 import Dogs from './components/Dogs';
+import AddDogForm from './components/AddDogForm';
+
+
 
 
 function App() {
@@ -58,11 +61,13 @@ function App() {
     <Toolbar>
       <Button color="inherit" component={Link} to="/">Home</Button>
       <Button color="inherit" component={Link} to="/dogs">Dogs</Button>
+      <Button color="inherit" component={Link} to="/add">Add Dogs</Button>
       <Button color="inherit" onClick={signOut}>Logout</Button>
     </Toolbar>
   </AppBar>
  <Routes>
               <Route path="/" element={<Dogs />} />
+              <Route path="/add" element={<AddDogForm />} />
               
             </Routes>
           </Router>
