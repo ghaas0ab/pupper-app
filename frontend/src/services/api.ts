@@ -37,21 +37,23 @@ export const dogService = {
     }
   },
 
-  async createDog(dogData: any, image: File): Promise<void> {
+  async createDog(dogData: any, image?: File, generatedImage?: string): Promise<void> {
     try {
-      const base64Image = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.readAsDataURL(image);
-      });
-
-      const payload = {
-        ...dogData,
-        image: base64Image
-      };
+      const payload: any = { ...dogData };
+      
+      if (image) {
+        const base64Image = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            resolve(base64);
+          };
+          reader.readAsDataURL(image);
+        });
+        payload.image = base64Image;
+      } else if (generatedImage) {
+        payload.image = generatedImage;
+      }
       
       const response = await fetch(`${API_BASE_URL}/dogs`, {
         method: 'POST',

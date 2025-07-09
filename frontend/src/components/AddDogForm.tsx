@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, TextField, Button, Box, Typography, Container, Paper, Divider, Alert } from '@mui/material';
+import { Card, CardContent, TextField, Button, Box, Typography, Container, Paper, Divider, Alert, Radio, RadioGroup, FormControl, FormControlLabel } from '@mui/material';
 import { CloudUpload, Pets } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { dogService } from '../services/api';
@@ -17,21 +17,48 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
     shelterEntryDate: '', description: '', birthday: '', weightInPounds: '', color: ''
   });
   const [image, setImage] = useState<File | null>(null);
+  const [imageOption, setImageOption] = useState<'upload' | 'generate'>('upload');
+  const [imageDescription, setImageDescription] = useState('');
+  const [generatedImage, setGeneratedImage] = useState<string>('');
+  const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  const generatePreview = async () => {
+    if (!imageDescription.trim()) return;
+    setGenerating(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/generate-preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: imageDescription })
+      });
+      const data = await response.json();
+      setGeneratedImage(data.image);
+    } catch (error) {
+      alert('Failed to generate preview');
+    }
+    setGenerating(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!image) {
+    if (imageOption === 'upload' && !image) {
       alert('Please select a photo');
+      return;
+    }
+    if (imageOption === 'generate' && !generatedImage) {
+      alert('Please generate a preview first');
       return;
     }
     
     setLoading(true);
     try {
-      await dogService.createDog(formData, image);
+      await dogService.createDog(formData, imageOption === 'upload' ? image : undefined, imageOption === 'generate' ? generatedImage : undefined);
       setFormData({ shelter: '', city: '', state: '', name: '', species: '', shelterEntryDate: '', description: '', birthday: '', weightInPounds: '', color: '' });
       setImage(null);
+      setImageDescription('');
+      setGeneratedImage('');
       setSuccessMessage('Dog added successfully! 🎉');
       setTimeout(() => navigate('/'), 2000);
     } catch (error) {
@@ -185,43 +212,91 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                 <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, color: '#2d3748' }}>
                   📸 Dog Photo
                 </Typography>
-                <Box sx={{ 
-                  border: '3px dashed #cbd5e0', 
-                  borderRadius: 3, 
-                  p: 6, 
-                  textAlign: 'center',
-                  backgroundColor: '#fff',
-                  transition: 'all 0.2s',
-                  '&:hover': { borderColor: '#ff6b35', backgroundColor: '#fff5f0' }
-                }}>
-                  <CloudUpload sx={{ fontSize: 48, color: '#a0aec0', mb: 2 }} />
-                  <Typography variant="h6" sx={{ mb: 1, color: '#4a5568' }}>
-                    Upload a beautiful photo of the dog
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#718096', mb: 3 }}>
-                    Supports PNG, JPEG, JPG files
-                  </Typography>
-                  <input 
-                    type="file" 
-                    accept="image/png,image/jpeg,image/jpg" 
-                    onChange={(e) => setImage(e.target.files?.[0] || null)} 
-                    style={{ 
-                      padding: '12px 24px', 
-                      border: '2px solid #ff6b35', 
-                      borderRadius: '8px',
-                      backgroundColor: '#ff6b35',
-                      color: 'white',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }} 
-                    required 
-                  />
-                  {image && (
-                    <Typography variant="body2" sx={{ mt: 2, color: '#38a169', fontWeight: 'bold' }}>
-                      ✓ {image.name} selected
+                
+                <FormControl component="fieldset" sx={{ mb: 3 }}>
+                  <RadioGroup 
+                    value={imageOption} 
+                    onChange={(e) => setImageOption(e.target.value as 'upload' | 'generate')}
+                    row
+                  >
+                    <FormControlLabel value="upload" control={<Radio />} label="Upload Photo" />
+                    <FormControlLabel value="generate" control={<Radio />} label="Generate with AI" />
+                  </RadioGroup>
+                </FormControl>
+
+                {imageOption === 'generate' ? (
+                  <Box>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="Describe the dog for AI generation"
+                      placeholder="A golden retriever sitting in a park, friendly expression, sunny day"
+                      value={imageDescription}
+                      onChange={(e) => setImageDescription(e.target.value)}
+                      required
+                      sx={{ backgroundColor: '#fff', borderRadius: 2, mb: 2 }}
+                    />
+                    <Button 
+                      onClick={generatePreview}
+                      disabled={generating || !imageDescription.trim()}
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                    >
+                      {generating ? 'Generating...' : 'Generate Preview'}
+                    </Button>
+                    {generatedImage && (
+                      <Box sx={{ textAlign: 'center', mt: 2 }}>
+                        <img 
+                          src={`data:image/jpeg;base64,${generatedImage}`} 
+                          alt="Generated preview" 
+                          style={{ maxWidth: '300px', borderRadius: '8px' }}
+                        />
+                        <Typography variant="body2" sx={{ mt: 1, color: '#38a169' }}>
+                          ✓ Preview generated
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                ) : (
+                  <Box sx={{ 
+                    border: '3px dashed #cbd5e0', 
+                    borderRadius: 3, 
+                    p: 6, 
+                    textAlign: 'center',
+                    backgroundColor: '#fff',
+                    transition: 'all 0.2s',
+                    '&:hover': { borderColor: '#ff6b35', backgroundColor: '#fff5f0' }
+                  }}>
+                    <CloudUpload sx={{ fontSize: 48, color: '#a0aec0', mb: 2 }} />
+                    <Typography variant="h6" sx={{ mb: 1, color: '#4a5568' }}>
+                      Upload a beautiful photo of the dog
                     </Typography>
-                  )}
-                </Box>
+                    <Typography variant="body2" sx={{ color: '#718096', mb: 3 }}>
+                      Supports PNG, JPEG, JPG files
+                    </Typography>
+                    <input 
+                      type="file" 
+                      accept="image/png,image/jpeg,image/jpg" 
+                      onChange={(e) => setImage(e.target.files?.[0] || null)} 
+                      style={{ 
+                        padding: '12px 24px', 
+                        border: '2px solid #ff6b35', 
+                        borderRadius: '8px',
+                        backgroundColor: '#ff6b35',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }} 
+                      required={imageOption === 'upload'}
+                    />
+                    {image && (
+                      <Typography variant="body2" sx={{ mt: 2, color: '#38a169', fontWeight: 'bold' }}>
+                        ✓ {image.name} selected
+                      </Typography>
+                    )}
+                  </Box>
+                )}
               </Box>
 
               <Box sx={{ p: 4, backgroundColor: '#fff', textAlign: 'center' }}>

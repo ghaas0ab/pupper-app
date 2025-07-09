@@ -75,32 +75,35 @@ import uuid
 from decimal import Decimal
 from datetime import datetime
 
+def generate_image_with_nova(description):
+    bedrock = boto3.client('bedrock-runtime')
+    body = {
+        "taskType": "TEXT_IMAGE",
+        "textToImageParams": {"text": description},
+        "imageGenerationConfig": {"numberOfImages": 1, "height": 512, "width": 512}
+    }
+    response = bedrock.invoke_model(modelId='amazon.nova-canvas-v1:0', body=json.dumps(body))
+    return json.loads(response['body'].read())['images'][0]
+
 def get_user_id_from_token(event):
     try:
         auth_header = event.get('headers', {}).get('Authorization') or event.get('headers', {}).get('authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
             return None
-        
         token = auth_header.replace('Bearer ', '')
         parts = token.split('.')
         if len(parts) != 3:
             return None
-            
         payload = parts[1]
         payload += '=' * (4 - len(payload) % 4)
-        
         decoded_bytes = base64.b64decode(payload)
         payload_json = json.loads(decoded_bytes.decode('utf-8'))
-        
         return payload_json.get('sub')
     except Exception as e:
         print(f"Token decode error: {str(e)}")
         return None
 
 def handler(event, context):
-    print("=== LAMBDA INVOKED ===")
-    print(f"Method: {event.get('httpMethod')}, Path: {event.get('path')}")
-    
     headers = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -127,21 +130,13 @@ def handler(event, context):
             return {"statusCode": 200, "headers": headers, "body": json.dumps(items)}
         
         elif method == 'POST' and path == '/interactions':
-            print("=== INTERACTIONS ENDPOINT ===")
-            
-            # GET REAL USER ID FROM TOKEN
             user_id = get_user_id_from_token(event)
             if not user_id:
-                print("No valid user ID found")
                 return {"statusCode": 401, "headers": headers, "body": json.dumps({"message": "Unauthorized"})}
-            
-            print(f"User ID: {user_id}")
             
             body = json.loads(event.get('body', '{}'))
             dog_id = body.get('dogId')
             interaction = body.get('interaction')
-            
-            print(f"Recording: user={user_id}, dog={dog_id}, interaction={interaction}")
             
             if not dog_id or interaction not in ['LIKE', 'DISLIKE']:
                 return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "Invalid request"})}
@@ -154,19 +149,12 @@ def handler(event, context):
                 'timestamp': datetime.utcnow().isoformat()
             })
             
-            print("Interaction saved successfully")
             return {"statusCode": 200, "headers": headers, "body": json.dumps({"message": "Interaction recorded"})}
         
         elif method == 'GET' and path == '/likes':
-            print("=== LIKES ENDPOINT ===")
-            
-            # GET REAL USER ID FROM TOKEN
             user_id = get_user_id_from_token(event)
             if not user_id:
-                print("No valid user ID found")
                 return {"statusCode": 401, "headers": headers, "body": json.dumps({"message": "Unauthorized"})}
-            
-            print(f"Getting likes for user: {user_id}")
             
             interactions_table = dynamodb.Table('pupper-interactions')
             response = interactions_table.query(
@@ -176,8 +164,6 @@ def handler(event, context):
             )
             
             dog_ids = [item['dogId'] for item in response['Items']]
-            print(f"Found {len(dog_ids)} liked dogs for user {user_id}")
-            
             if not dog_ids:
                 return {"statusCode": 200, "headers": headers, "body": json.dumps([])}
             
@@ -193,16 +179,32 @@ def handler(event, context):
             
             return {"statusCode": 200, "headers": headers, "body": json.dumps(liked_dogs)}
         
+        elif method == 'POST' and path == '/generate-preview':
+            body = json.loads(event.get('body', '{}'))
+            description = body.get('description')
+            if not description:
+                return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No description provided"})}
+            
+            try:
+                generated_image = generate_image_with_nova(description)
+                return {"statusCode": 200, "headers": headers, "body": json.dumps({"image": generated_image})}
+            except Exception as e:
+                return {"statusCode": 500, "headers": headers, "body": json.dumps({"message": f"Generation failed: {str(e)}"})}
+        
         elif method == 'POST' and path == '/dogs':
             body = json.loads(event.get('body', '{}'))
-            if 'image' not in body:
-                return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No image provided"})}
-            
             s3 = boto3.client('s3')
             bucket_name = 'pupper-photos-957798448417'
             dog_id = str(uuid.uuid4())
             
-            original_image_data = base64.b64decode(body['image'])
+            # Handle image generation or upload
+            if body.get('generateImageDescription'):
+                generated_image = generate_image_with_nova(body['generateImageDescription'])
+                original_image_data = base64.b64decode(generated_image)
+            elif body.get('image'):
+                original_image_data = base64.b64decode(body['image'])
+            else:
+                return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No image or description provided"})}
             
             s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/original.jpg", Body=original_image_data, ContentType='image/jpeg')
             s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/standard.jpg", Body=original_image_data, ContentType='image/jpeg')
@@ -240,13 +242,18 @@ def handler(event, context):
         return {"statusCode": 500, "headers": headers, "body": json.dumps({"message": f"Error: {str(e)}"})}
 """)
 
-
         )
 
         # Grant permissions
         self.dogs_table.grant_read_write_data(lambda_fn)
         self.interactions_table.grant_read_write_data(lambda_fn)
         bucket.grant_read_write(lambda_fn)
+        
+        # Add Bedrock permissions
+        lambda_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["bedrock:InvokeModel"],
+            resources=["arn:aws:bedrock:*::foundation-model/amazon.nova-canvas-v1:0"]
+        ))
 
         # COMPLETELY NEW API GATEWAY - force recreation
         api = apigateway.RestApi(
