@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton } from '@mui/material';
-import { Pets as PetsIcon, Search as SearchIcon, Add as AddIcon, Menu as MenuIcon } from '@mui/icons-material';
+import { Pets as PetsIcon, Favorite as FavoriteIcon, Add as AddIcon, Menu as MenuIcon } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 
 interface HeaderProps {
@@ -32,9 +32,26 @@ export default function Header({ onSignOut }: HeaderProps) {
                 </Box>
 
                 <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2 }}>
-                    <Button startIcon={<SearchIcon />}>Browse</Button>
-                    <Button component={Link} to="/add" startIcon={<AddIcon />}>Add a Dog</Button>
-                    <Button variant="outlined" onClick={onSignOut}>Sign Out</Button>
+                    <Button 
+                        component={Link} 
+                        to="/" 
+                        startIcon={<FavoriteIcon />}
+                    >
+                        Swipe
+                    </Button>
+                    <Button 
+                        component={Link} 
+                        to="/add" 
+                        startIcon={<AddIcon />}
+                    >
+                        Add a Dog
+                    </Button>
+                    <Button 
+                        variant="outlined" 
+                        onClick={onSignOut}
+                    >
+                        Sign Out
+                    </Button>
                 </Box>
 
                 <IconButton sx={{ display: { xs: 'block', md: 'none' } }}>

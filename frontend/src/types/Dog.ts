@@ -11,4 +11,6 @@ export interface Dog {
   weightInPounds: number;
   color: string;
   photo: string;
+  originalPhoto?: string;
+  thumbnailPhoto?: string;
 }
