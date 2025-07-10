@@ -37,6 +37,26 @@ export const dogService = {
     }
   },
 
+  async getDogById(id: string): Promise<Dog> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/dogs/${id}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Dog not found: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching dog:', error);
+      throw error;
+    }
+  },
+
   async createDog(dogData: any, image?: File, generatedImage?: string): Promise<void> {
     try {
       const payload: any = { ...dogData };
@@ -63,6 +83,11 @@ export const dogService = {
         },
         body: JSON.stringify(payload)
       });
+      
+      if (response.status === 422) {
+        const errorData = await response.json();
+        throw new Error(`❌ ${errorData.message}\n\nDetected: ${errorData.detectedLabels?.join(', ') || 'Unknown breed'}`);
+      }
       
       if (!response.ok) {
         const errorText = await response.text();

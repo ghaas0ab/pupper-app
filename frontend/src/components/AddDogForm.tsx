@@ -13,7 +13,7 @@ interface AddDogFormProps {
 export default function AddDogForm({ user, signOut }: AddDogFormProps) {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    shelter: '', city: '', state: '', name: '', species: '', 
+    shelter: '', city: '', state: '', name: '', species: '',
     shelterEntryDate: '', description: '', birthday: '', weightInPounds: '', color: ''
   });
   const [image, setImage] = useState<File | null>(null);
@@ -28,10 +28,11 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
     if (!imageDescription.trim()) return;
     setGenerating(true);
     try {
+      const labradorPrompt = `Labrador retriever dog, ${imageDescription}`;
       const response = await fetch(`${import.meta.env.VITE_API_URL}/generate-preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: imageDescription })
+        body: JSON.stringify({ description: labradorPrompt })
       });
       const data = await response.json();
       setGeneratedImage(data.image);
@@ -40,6 +41,7 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
     }
     setGenerating(false);
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +53,7 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
       alert('Please generate a preview first');
       return;
     }
-    
+
     setLoading(true);
     try {
       await dogService.createDog(formData, imageOption === 'upload' ? image : undefined, imageOption === 'generate' ? generatedImage : undefined);
@@ -59,11 +61,11 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
       setImage(null);
       setImageDescription('');
       setGeneratedImage('');
-      setSuccessMessage('Dog added successfully! 🎉');
+      setSuccessMessage('Labrador added successfully! 🎉');
       setTimeout(() => navigate('/'), 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submit error:', error);
-      alert('Error adding dog. Please check console for details.');
+      setSuccessMessage(error.message || 'Error adding dog');
     }
     setLoading(false);
   };
@@ -71,20 +73,23 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
   return (
     <Box sx={{ display: 'flex' }}>
       <Sidebar user={user} onSignOut={signOut} />
-      <Box sx={{ 
-        flex: 1, 
-        ml: '240px', 
-        backgroundColor: '#f8fafc', 
-        minHeight: '100vh', 
-        py: 4 
+      <Box sx={{
+        flex: 1,
+        ml: '240px',
+        backgroundColor: '#f8fafc',
+        minHeight: '100vh',
+        py: 4
       }}>
         <Container maxWidth="lg">
           {successMessage && (
-            <Alert severity="success" sx={{ mb: 4, fontSize: '16px' }}>
+            <Alert
+              severity={successMessage.includes('❌') ? 'error' : 'success'}
+              sx={{ mb: 4, fontSize: '16px' }}
+            >
               {successMessage}
             </Alert>
           )}
-          
+
           <Box sx={{ textAlign: 'center', mb: 6 }}>
             <Pets sx={{ fontSize: 48, color: '#ff6b35', mb: 2 }} />
             <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2, color: '#2d3748' }}>
@@ -102,39 +107,94 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                   🏠 Shelter Information
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr' }, gap: 3 }}>
-                  <TextField 
-                    fullWidth 
-                    label="Shelter Name" 
-                    placeholder="Arlington Shelter" 
-                    value={formData.shelter} 
-                    onChange={(e) => setFormData({...formData, shelter: e.target.value})} 
-                    required 
+                  <TextField
+                    fullWidth
+                    label="Shelter Name"
+                    placeholder="Arlington Shelter"
+                    value={formData.shelter}
+                    onChange={(e) => setFormData({ ...formData, shelter: e.target.value })}
+                    required
                   />
-                  <TextField 
-                    fullWidth 
-                    label="City" 
-                    placeholder="Arlington" 
+                  <TextField
+                    fullWidth
+                    label="City"
+                    placeholder="Arlington"
                     value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})} 
-                    required 
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    required
                   />
-                  <TextField 
-                    fullWidth 
-                    label="State" 
-                    placeholder="VA" 
+
+                  <TextField
+                    fullWidth
+                    select
+                    label="State"
                     value={formData.state}
-                    onChange={(e) => setFormData({...formData, state: e.target.value})} 
-                    required 
-                  />
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    required
+                    SelectProps={{ native: true }}
+                  >
+                    <option value=""></option>
+                    <option value="AL">Alabama</option>
+                    <option value="AK">Alaska</option>
+                    <option value="AZ">Arizona</option>
+                    <option value="AR">Arkansas</option>
+                    <option value="CA">California</option>
+                    <option value="CO">Colorado</option>
+                    <option value="CT">Connecticut</option>
+                    <option value="DE">Delaware</option>
+                    <option value="FL">Florida</option>
+                    <option value="GA">Georgia</option>
+                    <option value="HI">Hawaii</option>
+                    <option value="ID">Idaho</option>
+                    <option value="IL">Illinois</option>
+                    <option value="IN">Indiana</option>
+                    <option value="IA">Iowa</option>
+                    <option value="KS">Kansas</option>
+                    <option value="KY">Kentucky</option>
+                    <option value="LA">Louisiana</option>
+                    <option value="ME">Maine</option>
+                    <option value="MD">Maryland</option>
+                    <option value="MA">Massachusetts</option>
+                    <option value="MI">Michigan</option>
+                    <option value="MN">Minnesota</option>
+                    <option value="MS">Mississippi</option>
+                    <option value="MO">Missouri</option>
+                    <option value="MT">Montana</option>
+                    <option value="NE">Nebraska</option>
+                    <option value="NV">Nevada</option>
+                    <option value="NH">New Hampshire</option>
+                    <option value="NJ">New Jersey</option>
+                    <option value="NM">New Mexico</option>
+                    <option value="NY">New York</option>
+                    <option value="NC">North Carolina</option>
+                    <option value="ND">North Dakota</option>
+                    <option value="OH">Ohio</option>
+                    <option value="OK">Oklahoma</option>
+                    <option value="OR">Oregon</option>
+                    <option value="PA">Pennsylvania</option>
+                    <option value="RI">Rhode Island</option>
+                    <option value="SC">South Carolina</option>
+                    <option value="SD">South Dakota</option>
+                    <option value="TN">Tennessee</option>
+                    <option value="TX">Texas</option>
+                    <option value="UT">Utah</option>
+                    <option value="VT">Vermont</option>
+                    <option value="VA">Virginia</option>
+                    <option value="WA">Washington</option>
+                    <option value="WV">West Virginia</option>
+                    <option value="WI">Wisconsin</option>
+                    <option value="WY">Wyoming</option>
+                  </TextField>
+
                 </Box>
-                <TextField 
-                  fullWidth 
-                  type="date" 
-                  label="Shelter Entry Date" 
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="Shelter Entry Date"
                   value={formData.shelterEntryDate}
-                  onChange={(e) => setFormData({...formData, shelterEntryDate: e.target.value})} 
-                  InputLabelProps={{ shrink: true }} 
-                  required 
+                  onChange={(e) => setFormData({ ...formData, shelterEntryDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                  required
                   sx={{ mt: 3 }}
                 />
               </Box>
@@ -146,62 +206,63 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                   🐕 Dog Information
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
-                  <TextField 
-                    fullWidth 
-                    label="Dog Name" 
-                    placeholder="Fido" 
-                    value={formData.name} 
-                    onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                    required 
+                  <TextField
+                    fullWidth
+                    label="Dog Name"
+                    placeholder="Fido"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
                   />
-                  <TextField 
-                    fullWidth 
-                    label="Breed" 
-                    placeholder="Labrador Retriever" 
-                    value={formData.species}
-                    onChange={(e) => setFormData({...formData, species: e.target.value})} 
-                    required 
+                  <TextField
+                    fullWidth
+                    label="Breed"
+                    value="Labrador Retriever"
+                    disabled
+                    required
                   />
+
+
                 </Box>
-                
-                <TextField 
-                  fullWidth 
-                  multiline 
-                  rows={4} 
-                  label="Description" 
-                  placeholder="Good boy" 
+
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Description"
+                  placeholder="Good boy"
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})} 
-                  sx={{ mb: 3 }} 
-                  required 
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  sx={{ mb: 3 }}
+                  required
                 />
-                
+
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
-                  <TextField 
-                    fullWidth 
-                    type="date" 
-                    label="Birthday" 
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="Birthday"
                     value={formData.birthday}
-                    onChange={(e) => setFormData({...formData, birthday: e.target.value})} 
-                    InputLabelProps={{ shrink: true }} 
-                    required 
+                    onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                    required
                   />
-                  <TextField 
-                    fullWidth 
-                    type="number" 
-                    label="Weight (lbs)" 
-                    placeholder="32" 
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Weight (lbs)"
+                    placeholder="32"
                     value={formData.weightInPounds}
-                    onChange={(e) => setFormData({...formData, weightInPounds: e.target.value})} 
-                    required 
+                    onChange={(e) => setFormData({ ...formData, weightInPounds: e.target.value })}
+                    required
                   />
-                  <TextField 
-                    fullWidth 
-                    label="Color" 
-                    placeholder="Brown" 
+                  <TextField
+                    fullWidth
+                    label="Color"
+                    placeholder="Brown"
                     value={formData.color}
-                    onChange={(e) => setFormData({...formData, color: e.target.value})} 
-                    required 
+                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                    required
                   />
                 </Box>
               </Box>
@@ -212,10 +273,10 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                 <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, color: '#2d3748' }}>
                   📸 Dog Photo
                 </Typography>
-                
+
                 <FormControl component="fieldset" sx={{ mb: 3 }}>
-                  <RadioGroup 
-                    value={imageOption} 
+                  <RadioGroup
+                    value={imageOption}
                     onChange={(e) => setImageOption(e.target.value as 'upload' | 'generate')}
                     row
                   >
@@ -230,14 +291,15 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                       fullWidth
                       multiline
                       rows={3}
-                      label="Describe the dog for AI generation"
-                      placeholder="A golden retriever sitting in a park, friendly expression, sunny day"
+                      label="Describe the Labrador for AI generation"
+                      placeholder="A golden labrador retriever sitting in a park, friendly expression, sunny day"
                       value={imageDescription}
                       onChange={(e) => setImageDescription(e.target.value)}
                       required
                       sx={{ backgroundColor: '#fff', borderRadius: 2, mb: 2 }}
                     />
-                    <Button 
+
+                    <Button
                       onClick={generatePreview}
                       disabled={generating || !imageDescription.trim()}
                       variant="outlined"
@@ -247,9 +309,9 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                     </Button>
                     {generatedImage && (
                       <Box sx={{ textAlign: 'center', mt: 2 }}>
-                        <img 
-                          src={`data:image/jpeg;base64,${generatedImage}`} 
-                          alt="Generated preview" 
+                        <img
+                          src={`data:image/jpeg;base64,${generatedImage}`}
+                          alt="Generated preview"
                           style={{ maxWidth: '300px', borderRadius: '8px' }}
                         />
                         <Typography variant="body2" sx={{ mt: 1, color: '#38a169' }}>
@@ -259,10 +321,10 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                     )}
                   </Box>
                 ) : (
-                  <Box sx={{ 
-                    border: '3px dashed #cbd5e0', 
-                    borderRadius: 3, 
-                    p: 6, 
+                  <Box sx={{
+                    border: '3px dashed #cbd5e0',
+                    borderRadius: 3,
+                    p: 6,
                     textAlign: 'center',
                     backgroundColor: '#fff',
                     transition: 'all 0.2s',
@@ -275,19 +337,19 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
                     <Typography variant="body2" sx={{ color: '#718096', mb: 3 }}>
                       Supports PNG, JPEG, JPG files
                     </Typography>
-                    <input 
-                      type="file" 
-                      accept="image/png,image/jpeg,image/jpg" 
-                      onChange={(e) => setImage(e.target.files?.[0] || null)} 
-                      style={{ 
-                        padding: '12px 24px', 
-                        border: '2px solid #ff6b35', 
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={(e) => setImage(e.target.files?.[0] || null)}
+                      style={{
+                        padding: '12px 24px',
+                        border: '2px solid #ff6b35',
                         borderRadius: '8px',
                         backgroundColor: '#ff6b35',
                         color: 'white',
                         fontWeight: 'bold',
                         cursor: 'pointer'
-                      }} 
+                      }}
                       required={imageOption === 'upload'}
                     />
                     {image && (
@@ -300,17 +362,17 @@ export default function AddDogForm({ user, signOut }: AddDogFormProps) {
               </Box>
 
               <Box sx={{ p: 4, backgroundColor: '#fff', textAlign: 'center' }}>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
+                <Button
+                  type="submit"
+                  variant="contained"
                   size="large"
                   disabled={loading}
-                  sx={{ 
-                    py: 2, 
+                  sx={{
+                    py: 2,
                     px: 6,
-                    fontSize: '18px', 
-                    fontWeight: 'bold', 
-                    borderRadius: 3, 
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    borderRadius: 3,
                     backgroundColor: '#ff6b35',
                     '&:hover': { backgroundColor: '#e55a2b' }
                   }}

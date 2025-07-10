@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Container, Grid, Card, CardMedia, CardContent, Chip, TextField, InputAdornment } from '@mui/material';
 import { LocationOn, Search } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { dogService } from '../services/api';
 
@@ -10,12 +11,14 @@ interface Dog {
   species: string;
   city: string;
   state: string;
+  shelter?: string;
   photo: string;
   thumbnailPhoto?: string;
   weightInPounds: number;
   color: string;
   description: string;
   birthday: string;
+  shelterEntryDate?: string;
 }
 
 interface BrowseLabradorProps {
@@ -27,16 +30,14 @@ export default function BrowseLabrador({ user, signOut }: BrowseLabradorProps) {
   const [dogs, setDogs] = useState<Dog[]>([]);
   const [filteredDogs, setFilteredDogs] = useState<Dog[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDogs = async () => {
       try {
         const fetchedDogs = await dogService.getAllDogs();
-        const labradors = fetchedDogs.filter(dog => 
-          dog.species.toLowerCase().includes('labrador')
-        );
-        setDogs(labradors);
-        setFilteredDogs(labradors);
+        setDogs(fetchedDogs);
+        setFilteredDogs(fetchedDogs);
       } catch (error) {
         console.error('Error fetching dogs:', error);
       }
@@ -74,10 +75,10 @@ export default function BrowseLabrador({ user, signOut }: BrowseLabradorProps) {
         <Container maxWidth="xl">
           <Box sx={{ mb: 4 }}>
             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2, color: '#2d3748' }}>
-              🐕 Browse Labrador
+              🐕 Browse All Dogs
             </Typography>
             <Typography variant="h6" sx={{ color: '#718096', mb: 3 }}>
-              All Labrador dogs available for adoption
+              All dogs available for adoption
             </Typography>
             
             <TextField
@@ -103,8 +104,11 @@ export default function BrowseLabrador({ user, signOut }: BrowseLabradorProps) {
                   borderRadius: 3, 
                   overflow: 'hidden',
                   transition: 'transform 0.2s',
+                  cursor: 'pointer',
                   '&:hover': { transform: 'translateY(-5px)' }
-                }}>
+                }}
+                onClick={() => navigate(`/dog/${dog.id}`)}
+                >
                   <CardMedia
                     component="img"
                     height="200"
@@ -145,6 +149,17 @@ export default function BrowseLabrador({ user, signOut }: BrowseLabradorProps) {
               </Typography>
             </Box>
           )}
+
+          <Box sx={{ textAlign: 'center', mt: 6, py: 4, backgroundColor: 'white', borderRadius: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#2d3748' }}>
+              Total Dogs: {filteredDogs.length}
+            </Typography>
+            {searchTerm && (
+              <Typography variant="body1" sx={{ color: '#718096', mt: 1 }}>
+                Showing results for "{searchTerm}"
+              </Typography>
+            )}
+          </Box>
         </Container>
       </Box>
     </Box>

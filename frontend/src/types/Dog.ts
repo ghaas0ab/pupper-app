@@ -1,5 +1,5 @@
 export interface Dog {
-  id: number;
+  id: string;
   shelter: string;
   city: string;
   state: string;

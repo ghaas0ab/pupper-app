@@ -32,13 +32,24 @@ function Dogs({ user, signOut }: DogsProps) {
     const fetchDogs = async () => {
       try {
         const fetchedDogs = await dogService.getAllDogs();
+        console.log('Fetched dogs:', fetchedDogs);
         setDogs(fetchedDogs);
+        setCurrentIndex(0);
       } catch (error) {
         console.error('Error fetching dogs:', error);
       }
     };
 
     fetchDogs();
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchDogs();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const handleLike = async () => {

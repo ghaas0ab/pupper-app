@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Container, Card, CardMedia, Chip, Button, Grid } from '@mui/material';
 import { ArrowBack, LocationOn } from '@mui/icons-material';
 import Sidebar from './Sidebar';
+import { dogService } from '../services/api';
 
 interface Dog {
   id: string;
@@ -31,12 +32,17 @@ export default function DogDetail({ user, signOut }: DogDetailProps) {
   const [dog, setDog] = React.useState<Dog | null>(null);
 
   React.useEffect(() => {
-    const savedFavorites = localStorage.getItem('favorites');
-    if (savedFavorites) {
-      const favorites: Dog[] = JSON.parse(savedFavorites);
-      const foundDog = favorites.find(d => d.id === id);
-      if (foundDog) setDog(foundDog);
-    }
+    const fetchDog = async () => {
+      try {
+        const dogData = await dogService.getDogById(id!);
+        setDog(dogData);
+      } catch (error) {
+        console.error('Error fetching dog:', error);
+        setDog(null);
+      }
+    };
+    
+    if (id) fetchDog();
   }, [id]);
 
   const calculateAge = (birthday: string) => {

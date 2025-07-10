@@ -85,6 +85,22 @@ def generate_image_with_nova(description):
     response = bedrock.invoke_model(modelId='amazon.nova-canvas-v1:0', body=json.dumps(body))
     return json.loads(response['body'].read())['images'][0]
 
+def classify_dog_breed(image_data):
+    rekognition = boto3.client('rekognition')
+    try:
+        response = rekognition.detect_labels(
+            Image={'Bytes': image_data},
+            MaxLabels=20,
+            MinConfidence=60
+        )
+        labels = [label['Name'].lower() for label in response['Labels']]
+        labrador_keywords = ['labrador', 'retriever', 'lab']
+        is_labrador = any(keyword in ' '.join(labels) for keyword in labrador_keywords)
+        return is_labrador, labels
+    except Exception as e:
+        print(f"Rekognition error: {str(e)}")
+        return False, []
+
 def get_user_id_from_token(event):
     try:
         auth_header = event.get('headers', {}).get('Authorization') or event.get('headers', {}).get('authorization')
@@ -128,6 +144,18 @@ def handler(event, context):
                 if 'weightInPounds' in item and isinstance(item['weightInPounds'], Decimal):
                     item['weightInPounds'] = float(item['weightInPounds'])
             return {"statusCode": 200, "headers": headers, "body": json.dumps(items)}
+        
+        elif method == 'GET' and path.startswith('/dogs/'):
+            dog_id = path.split('/')[-1]
+            table = dynamodb.Table('pupper-dogs')
+            response = table.get_item(Key={'id': dog_id})
+            if 'Item' not in response:
+                return {"statusCode": 404, "headers": headers, "body": json.dumps({"message": "Dog not found"})}
+            
+            item = response['Item']
+            if 'weightInPounds' in item and isinstance(item['weightInPounds'], Decimal):
+                item['weightInPounds'] = float(item['weightInPounds'])
+            return {"statusCode": 200, "headers": headers, "body": json.dumps(item)}
         
         elif method == 'POST' and path == '/interactions':
             user_id = get_user_id_from_token(event)
@@ -193,22 +221,36 @@ def handler(event, context):
         
         elif method == 'POST' and path == '/dogs':
             body = json.loads(event.get('body', '{}'))
+            
+            # Get image data
+            if body.get('image'):
+                image_data = base64.b64decode(body['image'])
+            elif body.get('generateImageDescription'):
+                generated_image = generate_image_with_nova(body['generateImageDescription'])
+                image_data = base64.b64decode(generated_image)
+            else:
+                return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No image provided"})}
+            
+            # Classify the image
+            is_labrador, detected_labels = classify_dog_breed(image_data)
+            if not is_labrador:
+                return {
+                    "statusCode": 422, 
+                    "headers": headers, 
+                    "body": json.dumps({
+                        "message": "Only Labrador retrievers are accepted for adoption listings.",
+                        "detectedLabels": detected_labels
+                    })
+                }
+            
+            # Continue with dog creation
             s3 = boto3.client('s3')
             bucket_name = 'pupper-photos-957798448417'
             dog_id = str(uuid.uuid4())
             
-            # Handle image generation or upload
-            if body.get('generateImageDescription'):
-                generated_image = generate_image_with_nova(body['generateImageDescription'])
-                original_image_data = base64.b64decode(generated_image)
-            elif body.get('image'):
-                original_image_data = base64.b64decode(body['image'])
-            else:
-                return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No image or description provided"})}
-            
-            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/original.jpg", Body=original_image_data, ContentType='image/jpeg')
-            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/standard.jpg", Body=original_image_data, ContentType='image/jpeg')
-            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/thumbnail.jpg", Body=original_image_data, ContentType='image/jpeg')
+            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/original.jpg", Body=image_data, ContentType='image/jpeg')
+            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/standard.jpg", Body=image_data, ContentType='image/jpeg')
+            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/thumbnail.jpg", Body=image_data, ContentType='image/jpeg')
             
             photo_url = f"https://{bucket_name}.s3.amazonaws.com/{dog_id}/standard.jpg"
             
@@ -253,6 +295,12 @@ def handler(event, context):
         lambda_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["bedrock:InvokeModel"],
             resources=["arn:aws:bedrock:*::foundation-model/amazon.nova-canvas-v1:0"]
+        ))
+
+        # Add Rekognition permissions
+        lambda_fn.add_to_role_policy(iam.PolicyStatement(
+            actions=["rekognition:DetectLabels"],
+            resources=["*"]
         ))
 
         # COMPLETELY NEW API GATEWAY - force recreation
