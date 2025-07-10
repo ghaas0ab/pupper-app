@@ -5,16 +5,11 @@ from aws_cdk import (
     RemovalPolicy,
     CfnOutput,
     aws_iam as iam,
-    aws_sqs as sqs,
-    aws_sns as sns,
-    aws_sns_subscriptions as subs,
     aws_lambda as _lambda,
     aws_dynamodb as dynamodb,
     aws_apigateway as apigateway,
     aws_s3 as s3,
-    aws_cognito as cognito,
 )
-
 
 class pupperStack(Stack):
 
@@ -53,6 +48,22 @@ class pupperStack(Stack):
         bucket_name = "pupper-photos-957798448417"
         bucket = s3.Bucket.from_bucket_name(self, "DogPhotosBucket", bucket_name)
 
+        # Make bucket publicly readable
+        bucket.add_to_resource_policy(iam.PolicyStatement(
+            actions=["s3:GetObject"],
+            resources=[f"arn:aws:s3:::{bucket_name}/*"],
+            principals=[iam.AnyPrincipal()],
+            effect=iam.Effect.ALLOW
+        ))
+
+        # Create our own Pillow layer
+        pillow_layer = _lambda.LayerVersion(
+            self, "PillowLayer",
+            code=_lambda.Code.from_asset("layers/pillow"),
+            compatible_runtimes=[_lambda.Runtime.PYTHON_3_9],
+            description="Pillow library for image processing"
+        )
+
         # Lambda function
         lambda_fn = _lambda.Function(
             self, "DogsApiFunction",
@@ -60,12 +71,12 @@ class pupperStack(Stack):
             handler="index.handler",
             timeout=Duration.seconds(30),
             memory_size=512,
+            layers=[pillow_layer],
             environment={
                 "BUCKET_NAME": bucket_name,
                 "TABLE_NAME": "pupper-dogs",
                 "INTERACTIONS_TABLE": "pupper-interactions"
             },
-
             code=_lambda.Code.from_inline("""
 import json
 import boto3
@@ -74,6 +85,36 @@ import base64
 import uuid
 from decimal import Decimal
 from datetime import datetime
+from PIL import Image
+import io
+
+
+def process_image(image_data):
+    img = Image.open(io.BytesIO(image_data))
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    
+    original_buffer = io.BytesIO()
+    img.save(original_buffer, format='PNG')
+    original_data = original_buffer.getvalue()
+    
+    # 400x400 PNG with high quality
+    standard_img = img.resize((400, 400), Image.Resampling.LANCZOS)
+    standard_buffer = io.BytesIO()
+    standard_img.save(standard_buffer, format='PNG', optimize=True)
+    standard_data = standard_buffer.getvalue()
+    
+    # Better 50x50 thumbnail with sharpening
+    thumbnail_img = img.resize((50, 50), Image.Resampling.LANCZOS)
+    # Apply sharpening filter
+    from PIL import ImageFilter
+    thumbnail_img = thumbnail_img.filter(ImageFilter.SHARPEN)
+    thumbnail_buffer = io.BytesIO()
+    thumbnail_img.save(thumbnail_buffer, format='PNG', optimize=True)
+
+    
+    return original_data, standard_data, thumbnail_data
+
 
 def generate_image_with_nova(description):
     bedrock = boto3.client('bedrock-runtime')
@@ -88,11 +129,7 @@ def generate_image_with_nova(description):
 def classify_dog_breed(image_data):
     rekognition = boto3.client('rekognition')
     try:
-        response = rekognition.detect_labels(
-            Image={'Bytes': image_data},
-            MaxLabels=20,
-            MinConfidence=60
-        )
+        response = rekognition.detect_labels(Image={'Bytes': image_data}, MaxLabels=20, MinConfidence=60)
         labels = [label['Name'].lower() for label in response['Labels']]
         labrador_keywords = ['labrador', 'retriever', 'lab']
         is_labrador = any(keyword in ' '.join(labels) for keyword in labrador_keywords)
@@ -110,8 +147,7 @@ def get_user_id_from_token(event):
         parts = token.split('.')
         if len(parts) != 3:
             return None
-        payload = parts[1]
-        payload += '=' * (4 - len(payload) % 4)
+        payload = parts[1] + '=' * (4 - len(parts[1]) % 4)
         decoded_bytes = base64.b64decode(payload)
         payload_json = json.loads(decoded_bytes.decode('utf-8'))
         return payload_json.get('sub')
@@ -151,7 +187,6 @@ def handler(event, context):
             response = table.get_item(Key={'id': dog_id})
             if 'Item' not in response:
                 return {"statusCode": 404, "headers": headers, "body": json.dumps({"message": "Dog not found"})}
-            
             item = response['Item']
             if 'weightInPounds' in item and isinstance(item['weightInPounds'], Decimal):
                 item['weightInPounds'] = float(item['weightInPounds'])
@@ -161,40 +196,24 @@ def handler(event, context):
             user_id = get_user_id_from_token(event)
             if not user_id:
                 return {"statusCode": 401, "headers": headers, "body": json.dumps({"message": "Unauthorized"})}
-            
             body = json.loads(event.get('body', '{}'))
             dog_id = body.get('dogId')
             interaction = body.get('interaction')
-            
             if not dog_id or interaction not in ['LIKE', 'DISLIKE']:
                 return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "Invalid request"})}
-            
             interactions_table = dynamodb.Table('pupper-interactions')
-            interactions_table.put_item(Item={
-                'userId': user_id,
-                'dogId': dog_id,
-                'interaction': interaction,
-                'timestamp': datetime.utcnow().isoformat()
-            })
-            
+            interactions_table.put_item(Item={'userId': user_id, 'dogId': dog_id, 'interaction': interaction, 'timestamp': datetime.utcnow().isoformat()})
             return {"statusCode": 200, "headers": headers, "body": json.dumps({"message": "Interaction recorded"})}
         
         elif method == 'GET' and path == '/likes':
             user_id = get_user_id_from_token(event)
             if not user_id:
                 return {"statusCode": 401, "headers": headers, "body": json.dumps({"message": "Unauthorized"})}
-            
             interactions_table = dynamodb.Table('pupper-interactions')
-            response = interactions_table.query(
-                KeyConditionExpression=Key('userId').eq(user_id),
-                FilterExpression='interaction = :like',
-                ExpressionAttributeValues={':like': 'LIKE'}
-            )
-            
+            response = interactions_table.query(KeyConditionExpression=Key('userId').eq(user_id), FilterExpression='interaction = :like', ExpressionAttributeValues={':like': 'LIKE'})
             dog_ids = [item['dogId'] for item in response['Items']]
             if not dog_ids:
                 return {"statusCode": 200, "headers": headers, "body": json.dumps([])}
-            
             dogs_table = dynamodb.Table('pupper-dogs')
             liked_dogs = []
             for dog_id in dog_ids:
@@ -204,7 +223,6 @@ def handler(event, context):
                     if 'weightInPounds' in item and isinstance(item['weightInPounds'], Decimal):
                         item['weightInPounds'] = float(item['weightInPounds'])
                     liked_dogs.append(item)
-            
             return {"statusCode": 200, "headers": headers, "body": json.dumps(liked_dogs)}
         
         elif method == 'POST' and path == '/generate-preview':
@@ -212,7 +230,6 @@ def handler(event, context):
             description = body.get('description')
             if not description:
                 return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No description provided"})}
-            
             try:
                 generated_image = generate_image_with_nova(description)
                 return {"statusCode": 200, "headers": headers, "body": json.dumps({"image": generated_image})}
@@ -221,8 +238,6 @@ def handler(event, context):
         
         elif method == 'POST' and path == '/dogs':
             body = json.loads(event.get('body', '{}'))
-            
-            # Get image data
             if body.get('image'):
                 image_data = base64.b64decode(body['image'])
             elif body.get('generateImageDescription'):
@@ -231,49 +246,31 @@ def handler(event, context):
             else:
                 return {"statusCode": 400, "headers": headers, "body": json.dumps({"message": "No image provided"})}
             
-            # Classify the image
             is_labrador, detected_labels = classify_dog_breed(image_data)
             if not is_labrador:
-                return {
-                    "statusCode": 422, 
-                    "headers": headers, 
-                    "body": json.dumps({
-                        "message": "Only Labrador retrievers are accepted for adoption listings.",
-                        "detectedLabels": detected_labels
-                    })
-                }
+                return {"statusCode": 422, "headers": headers, "body": json.dumps({"message": "Only Labrador retrievers are accepted for adoption listings.", "detectedLabels": detected_labels})}
             
-            # Continue with dog creation
+            original_data, standard_data, thumbnail_data = process_image(image_data)
             s3 = boto3.client('s3')
             bucket_name = 'pupper-photos-957798448417'
             dog_id = str(uuid.uuid4())
             
-            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/original.jpg", Body=image_data, ContentType='image/jpeg')
-            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/standard.jpg", Body=image_data, ContentType='image/jpeg')
-            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/thumbnail.jpg", Body=image_data, ContentType='image/jpeg')
+            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/original.png", Body=original_data, ContentType='image/png')
+            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/standard.png", Body=standard_data, ContentType='image/png')
+            s3.put_object(Bucket=bucket_name, Key=f"{dog_id}/thumbnail.png", Body=thumbnail_data, ContentType='image/png')
             
-            photo_url = f"https://{bucket_name}.s3.amazonaws.com/{dog_id}/standard.jpg"
-            
+            photo_url = f"https://{bucket_name}.s3.us-east-1.amazonaws.com/{dog_id}/standard.png"
             dog_data = {
-                'id': dog_id,
-                'name': body.get('name', ''),
-                'species': body.get('species', ''),
-                'shelter': body.get('shelter', ''),
-                'city': body.get('city', ''),
-                'state': body.get('state', ''),
-                'description': body.get('description', ''),
-                'birthday': body.get('birthday', ''),
-                'weightInPounds': int(body.get('weightInPounds', 0)) if body.get('weightInPounds') else 0,
-                'color': body.get('color', ''),
-                'photo': photo_url,
-                'originalPhoto': f"https://{bucket_name}.s3.amazonaws.com/{dog_id}/original.jpg",
-                'thumbnailPhoto': f"https://{bucket_name}.s3.amazonaws.com/{dog_id}/thumbnail.jpg",
+                'id': dog_id, 'name': body.get('name', ''), 'species': body.get('species', ''), 'shelter': body.get('shelter', ''),
+                'city': body.get('city', ''), 'state': body.get('state', ''), 'description': body.get('description', ''),
+                'birthday': body.get('birthday', ''), 'weightInPounds': int(body.get('weightInPounds', 0)) if body.get('weightInPounds') else 0,
+                'color': body.get('color', ''), 'photo': photo_url,
+                'originalPhoto': f"https://{bucket_name}.s3.us-east-1.amazonaws.com/{dog_id}/original.png",
+                'thumbnailPhoto': f"https://{bucket_name}.s3.us-east-1.amazonaws.com/{dog_id}/thumbnail.png",
                 'shelterEntryDate': body.get('shelterEntryDate', '')
             }
-            
             table = dynamodb.Table('pupper-dogs')
             table.put_item(Item=dog_data)
-            
             return {"statusCode": 200, "headers": headers, "body": json.dumps({"message": "Dog created successfully", "id": dog_id})}
         
         else:
@@ -283,7 +280,6 @@ def handler(event, context):
         print(f"ERROR: {str(e)}")
         return {"statusCode": 500, "headers": headers, "body": json.dumps({"message": f"Error: {str(e)}"})}
 """)
-
         )
 
         # Grant permissions
@@ -303,9 +299,9 @@ def handler(event, context):
             resources=["*"]
         ))
 
-        # COMPLETELY NEW API GATEWAY - force recreation
+        # API Gateway
         api = apigateway.RestApi(
-            self, "PupperApiClean",  # NEW ID
+            self, "PupperApiClean",
             rest_api_name="Pupper Dogs API Clean",
             default_cors_preflight_options=apigateway.CorsOptions(
                 allow_origins=["*"],
@@ -314,7 +310,6 @@ def handler(event, context):
             )
         )
 
-        # ONLY proxy - no individual resources
         api.root.add_proxy(
             default_integration=apigateway.LambdaIntegration(lambda_fn),
             any_method=True
