@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Container, Grid, Card, CardMedia, CardContent, Chip, IconButton, Skeleton } from '@mui/material';
-import { LocationOn, Favorite, Close, Pets } from '@mui/icons-material';
+import { Box, Typography, Container, Grid, Card, CardMedia, CardContent, Chip, IconButton, Skeleton, Button } from '@mui/material';
+import { LocationOn, Favorite, Close, Pets, Home } from '@mui/icons-material';
 import Sidebar from './Sidebar';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { dogService } from '../services/api';
 
 interface Dog {
@@ -92,11 +92,11 @@ export default function Favorites({ user, signOut }: FavoritesProps) {
             }}>
                 <Container maxWidth="xl">
                     <Box sx={{ mb: 5, textAlign: 'center' }}>
-                        <Typography 
-                            variant="h3" 
-                            sx={{ 
-                                fontWeight: 800, 
-                                mb: 2, 
+                        <Typography
+                            variant="h3"
+                            sx={{
+                                fontWeight: 800,
+                                mb: 2,
                                 background: 'linear-gradient(45deg, #ff6b35, #f093fb)',
                                 backgroundClip: 'text',
                                 WebkitBackgroundClip: 'text',
@@ -113,140 +113,166 @@ export default function Favorites({ user, signOut }: FavoritesProps) {
 
                     {loading ? (
                         <LoadingSkeleton />
-                    ) : favorites.length === 0 ? (
-                        <Box sx={{ 
-                            textAlign: 'center', 
-                            py: 10,
-                            background: 'rgba(255,255,255,0.8)',
-                            borderRadius: 4,
-                            backdropFilter: 'blur(10px)'
-                        }}>
-                            <Pets sx={{ fontSize: 80, color: '#cbd5e0', mb: 3 }} />
-                            <Typography variant="h4" sx={{ color: '#475569', mb: 2, fontWeight: 600 }}>
-                                No favorites yet
-                            </Typography>
-                            <Typography variant="h6" sx={{ color: '#64748b' }}>
-                                Start swiping to add dogs to your favorites!
-                            </Typography>
-                        </Box>
                     ) : (
-                        <Grid container spacing={3}>
-                            {favorites.map((dog) => (
-                                <Grid item xs={12} sm={6} md={4} lg={3} key={dog.id}>
-                                    <Card sx={{
-                                        borderRadius: 4,
-                                        overflow: 'hidden',
-                                        transition: 'all 0.3s ease',
-                                        position: 'relative',
-                                        height: 420,
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        background: 'rgba(255,255,255,0.95)',
-                                        backdropFilter: 'blur(10px)',
-                                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                                        '&:hover': { 
-                                            transform: 'translateY(-12px)',
-                                            boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+                        favorites.length === 0 ? (
+                            <Box sx={{
+                                textAlign: 'center',
+                                py: 10,
+                                px: 3,
+                                background: 'rgba(255,255,255,0.8)',
+                                borderRadius: 4,
+                                backdropFilter: 'blur(10px)'
+                            }}>
+                                <Pets sx={{ fontSize: 80, color: '#cbd5e0', mb: 3 }} />
+                                <Typography variant="h4" sx={{ color: '#475569', mb: 2, fontWeight: 600 }}>
+                                    No favorites yet
+                                </Typography>
+                                <Typography variant="body1" sx={{ color: '#64748b', mb: 4, maxWidth: 500, mx: 'auto' }}>
+                                    Start swiping to add dogs to your favorites! When you find a dog you love, tap the heart button or swipe right.
+                                </Typography>
+                                <Button
+                                    component={Link}
+                                    to="/"
+                                    variant="contained"
+                                    startIcon={<Home />}
+                                    sx={{
+                                        background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                                        borderRadius: 3,
+                                        py: 1.5,
+                                        px: 4,
+                                        fontSize: '1rem',
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        boxShadow: '0 8px 32px rgba(102,126,234,0.3)',
+                                        '&:hover': {
+                                            background: 'linear-gradient(45deg, #5a67d8, #6b46c1)',
+                                            transform: 'translateY(-2px)',
+                                            boxShadow: '0 12px 40px rgba(102,126,234,0.4)'
                                         }
-                                    }}>
-                                        <IconButton
-                                            onClick={() => removeFavorite(dog.id)}
-                                            sx={{
-                                                position: 'absolute',
-                                                top: 12,
-                                                right: 12,
-                                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                                zIndex: 2,
-                                                width: 40,
-                                                height: 40,
-                                                backdropFilter: 'blur(10px)',
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': {
-                                                    backgroundColor: '#ff4458',
-                                                    color: 'white',
-                                                    transform: 'scale(1.1)'
-                                                }
-                                            }}
-                                        >
-                                            <Close sx={{ fontSize: 20 }} />
-                                        </IconButton>
-
-                                        <CardMedia
-                                            component="img"
-                                            height="240"
-                                            image={dog.thumbnailPhoto || dog.photo}
-                                            alt={dog.name}
-                                            sx={{
-                                                objectFit: 'cover',
-                                                cursor: 'pointer',
-                                                transition: 'transform 0.3s ease',
-                                                '&:hover': {
-                                                    transform: 'scale(1.05)'
-                                                }
-                                            }}
-                                            onClick={() => navigate(`/dog/${dog.id}`)}
-                                        />
-
-                                        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
-                                            <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5, color: '#1e293b' }}>
-                                                {dog.name}, {calculateAge(dog.birthday)}
-                                            </Typography>
-
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <LocationOn sx={{ fontSize: 18, color: '#64748b', mr: 0.5 }} />
-                                                <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
-                                                    {dog.city}, {dog.state}
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                                                <Chip 
-                                                    label={dog.species} 
-                                                    size="small" 
-                                                    sx={{ 
-                                                        backgroundColor: '#e0f2fe',
-                                                        color: '#0369a1',
-                                                        fontWeight: 600
-                                                    }}
-                                                />
-                                                <Chip 
-                                                    label={`${dog.weightInPounds} lbs`} 
-                                                    size="small"
-                                                    sx={{ 
-                                                        backgroundColor: '#f0fdf4',
-                                                        color: '#166534',
-                                                        fontWeight: 600
-                                                    }}
-                                                />
-                                                <Chip 
-                                                    label={dog.color} 
-                                                    size="small"
-                                                    sx={{ 
-                                                        backgroundColor: '#fef3c7',
-                                                        color: '#92400e',
-                                                        fontWeight: 600
-                                                    }}
-                                                />
-                                            </Box>
-
-                                            <Typography
-                                                variant="body2"
+                                    }}
+                                >
+                                    Start Discovering Dogs
+                                </Button>
+                            </Box>
+                        ) : (
+                            <Grid container spacing={3}>
+                                {favorites.map((dog) => (
+                                    <Grid item xs={12} sm={6} md={4} lg={3} key={dog.id}>
+                                        <Card sx={{
+                                            borderRadius: 4,
+                                            overflow: 'hidden',
+                                            transition: 'all 0.3s ease',
+                                            position: 'relative',
+                                            height: 420,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            background: 'rgba(255,255,255,0.95)',
+                                            backdropFilter: 'blur(10px)',
+                                            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                                            '&:hover': {
+                                                transform: 'translateY(-12px)',
+                                                boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+                                            }
+                                        }}>
+                                            <IconButton
+                                                onClick={() => removeFavorite(dog.id)}
                                                 sx={{
-                                                    color: '#475569',
-                                                    overflow: 'hidden',
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 3,
-                                                    WebkitBoxOrient: 'vertical',
-                                                    lineHeight: 1.5
+                                                    position: 'absolute',
+                                                    top: 12,
+                                                    right: 12,
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                    zIndex: 2,
+                                                    width: 40,
+                                                    height: 40,
+                                                    backdropFilter: 'blur(10px)',
+                                                    transition: 'all 0.3s ease',
+                                                    '&:hover': {
+                                                        backgroundColor: '#ff4458',
+                                                        color: 'white',
+                                                        transform: 'scale(1.1)'
+                                                    }
                                                 }}
                                             >
-                                                {dog.description}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            ))}
-                        </Grid>
+                                                <Close sx={{ fontSize: 20 }} />
+                                            </IconButton>
+
+                                            <CardMedia
+                                                component="img"
+                                                height="240"
+                                                image={dog.thumbnailPhoto || dog.photo}
+                                                alt={dog.name}
+                                                sx={{
+                                                    objectFit: 'cover',
+                                                    cursor: 'pointer',
+                                                    transition: 'transform 0.3s ease',
+                                                    '&:hover': {
+                                                        transform: 'scale(1.05)'
+                                                    }
+                                                }}
+                                                onClick={() => navigate(`/dog/${dog.id}`)}
+                                            />
+
+                                            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+                                                <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5, color: '#1e293b' }}>
+                                                    {dog.name}, {calculateAge(dog.birthday)}
+                                                </Typography>
+
+                                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                                    <LocationOn sx={{ fontSize: 18, color: '#64748b', mr: 0.5 }} />
+                                                    <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
+                                                        {dog.city}, {dog.state}
+                                                    </Typography>
+                                                </Box>
+
+                                                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                                                    <Chip
+                                                        label={dog.species}
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: '#e0f2fe',
+                                                            color: '#0369a1',
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
+                                                    <Chip
+                                                        label={`${dog.weightInPounds} lbs`}
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: '#f0fdf4',
+                                                            color: '#166534',
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
+                                                    <Chip
+                                                        label={dog.color}
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: '#fef3c7',
+                                                            color: '#92400e',
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
+                                                </Box>
+
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        color: '#475569',
+                                                        overflow: 'hidden',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 3,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        lineHeight: 1.5
+                                                    }}
+                                                >
+                                                    {dog.description}
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        )
                     )}
                 </Container>
             </Box>

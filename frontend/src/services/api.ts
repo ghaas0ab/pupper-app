@@ -1,6 +1,21 @@
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { Dog } from '../types/Dog';
 
+
+// Fixed handleApiResponse function
+async function handleApiResponse(response: Response, errorMessage: string) {
+  if (!response.ok) {
+    let errorText = await response.text();
+    try {
+      const errorJson = JSON.parse(errorText);
+      throw new Error(`${errorMessage}: ${response.status} - ${errorJson.message || errorText}`);
+    } catch (e) {
+      throw new Error(`${errorMessage}: ${response.status} - ${errorText}`);
+    }
+  }
+  return await response.json();
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 async function getAuthHeaders() {
@@ -26,11 +41,7 @@ export const dogService = {
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch dogs: ${response.status}`);
-      }
-      
-      return await response.json();
+      return await handleApiResponse(response, 'Failed to fetch dogs');
     } catch (error) {
       console.error('Error fetching dogs:', error);
       throw error;

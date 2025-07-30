@@ -1,3 +1,4 @@
+// Enhanced Sidebar.tsx with improved accessibility
 import React, { useState } from 'react';
 import { 
   Box, List, ListItem, ListItemIcon, ListItemText, Typography, 
@@ -25,23 +26,27 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const menuItems = [
-    { text: 'Discover', icon: <Home />, path: '/' },
-    { text: 'Favorites', icon: <Favorite />, path: '/favorites' },
-    { text: 'Browse', icon: <GridView />, path: '/browse' },
-    { text: 'Add Dog', icon: <Add />, path: '/add' },
+    { text: 'Discover', icon: <Home />, path: '/', ariaLabel: 'Go to discover page' },
+    { text: 'Favorites', icon: <Favorite />, path: '/favorites', ariaLabel: 'View your favorite dogs' },
+    { text: 'Browse', icon: <GridView />, path: '/browse', ariaLabel: 'Browse all dogs' },
+    { text: 'Add Dog', icon: <Add />, path: '/add', ariaLabel: 'Add a new dog' },
   ];
 
   const displayName = user?.given_name || user?.username || 'User';
 
   const SidebarContent = () => (
-    <Box sx={{
-      width: 240,
-      height: '100%',
-      background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
-      color: 'white',
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <Box 
+      component="nav"
+      aria-label="Main navigation"
+      sx={{
+        width: 240,
+        height: '100%',
+        background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Pets sx={{ color: 'white', fontSize: 40, mb: 1 }} />
         <Typography variant="h5" sx={{ fontWeight: 800, color: 'white' }}>
@@ -57,14 +62,17 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
       {user && (
         <>
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Avatar sx={{ 
-              width: 56, 
-              height: 56, 
-              mx: 'auto', 
-              mb: 1.5,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(10px)'
-            }}>
+            <Avatar 
+              alt={displayName}
+              sx={{ 
+                width: 56, 
+                height: 56, 
+                mx: 'auto', 
+                mb: 1.5,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(10px)'
+              }}
+            >
               <Person sx={{ fontSize: 28 }} />
             </Avatar>
             <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
@@ -85,6 +93,8 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
             component={Link}
             to={item.path}
             onClick={() => isMobile && setMobileOpen(false)}
+            aria-label={item.ariaLabel}
+            aria-current={location.pathname === item.path ? 'page' : undefined}
             sx={{
               borderRadius: 3,
               mb: 1,
@@ -96,6 +106,10 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
               '&:hover': {
                 backgroundColor: 'rgba(255,255,255,0.15)',
                 transform: 'translateX(8px)'
+              },
+              '&:focus-visible': {
+                outline: '2px solid white',
+                outlineOffset: '2px'
               }
             }}
           >
@@ -119,6 +133,7 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
               variant="outlined"
               startIcon={<Logout />}
               onClick={onSignOut}
+              aria-label="Sign out of your account"
               sx={{
                 borderColor: 'rgba(255,255,255,0.3)',
                 color: 'white',
@@ -127,6 +142,10 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
                 '&:hover': {
                   borderColor: 'white',
                   backgroundColor: 'rgba(255,255,255,0.1)'
+                },
+                '&:focus-visible': {
+                  outline: '2px solid white',
+                  outlineOffset: '2px'
                 }
               }}
             >
@@ -143,6 +162,7 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
       <>
         <IconButton
           onClick={() => setMobileOpen(true)}
+          aria-label="Open navigation menu"
           sx={{
             position: 'fixed',
             top: 16,
@@ -152,6 +172,10 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
             backdropFilter: 'blur(10px)',
             '&:hover': {
               backgroundColor: 'rgba(255,255,255,1)'
+            },
+            '&:focus-visible': {
+              outline: '2px solid #667eea',
+              outlineOffset: '2px'
             }
           }}
         >
@@ -167,12 +191,17 @@ export default function Sidebar({ user, onSignOut }: SidebarProps) {
           <Box sx={{ position: 'relative', height: '100%' }}>
             <IconButton
               onClick={() => setMobileOpen(false)}
+              aria-label="Close navigation menu"
               sx={{
                 position: 'absolute',
                 top: 8,
                 right: 8,
                 zIndex: 1,
-                color: 'white'
+                color: 'white',
+                '&:focus-visible': {
+                  outline: '2px solid white',
+                  outlineOffset: '2px'
+                }
               }}
             >
               <Close />

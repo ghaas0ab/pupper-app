@@ -1,3 +1,4 @@
+// Modified App.tsx with onboarding
 import React, { useState, useEffect } from 'react';
 import { Amplify } from 'aws-amplify';
 import { getCurrentUser, signOut } from 'aws-amplify/auth';
@@ -9,10 +10,12 @@ import AddDogForm from './components/AddDogForm';
 import Favorites from './components/Favorites';
 import BrowseLabrador from './components/BrowseLabrador';
 import DogDetail from './components/DogDetail';
+import Onboarding from './components/Onboarding';
 
 function App() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const user_pool_id = import.meta.env.VITE_USER_POOL_ID;
   const client_id = import.meta.env.VITE_CLIENT_ID;
@@ -31,6 +34,16 @@ function App() {
     checkAuthState();
   }, []);
 
+  useEffect(() => {
+    if (user) {
+      // Check if user has seen onboarding
+      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+      if (!hasSeenOnboarding) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [user]);
+
   const checkAuthState = async () => {
     try {
       const currentUser = await getCurrentUser();
@@ -48,6 +61,11 @@ function App() {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  };
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    localStorage.setItem('hasSeenOnboarding', 'true');
   };
 
   if (loading) {
@@ -73,6 +91,7 @@ function App() {
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
     }}>
+      {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
       <Router>
         <Routes>
           <Route path="/" element={<Dogs user={user} signOut={handleSignOut} />} />
